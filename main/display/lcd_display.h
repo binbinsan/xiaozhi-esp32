@@ -19,10 +19,15 @@ protected:
     lv_obj_t* content_ = nullptr;
     lv_obj_t* container_ = nullptr;
     lv_obj_t* side_bar_ = nullptr;
+    lv_obj_t* standby_screen_ = nullptr;  // 待机模式页面
+    lv_obj_t* time_label_ = nullptr;      // 时间显示标签
+    lv_obj_t* date_label_ = nullptr;      // 日期显示标签
 
     DisplayFonts fonts_;
+    bool standby_mode_ = false;           // 是否处于待机模式
 
     void SetupUI();
+    void SetupStandbyUI();                // 初始化待机模式UI
     virtual bool Lock(int timeout_ms = 0) override;
     virtual void Unlock() override;
 
@@ -38,6 +43,8 @@ public:
 #if CONFIG_USE_WECHAT_MESSAGE_STYLE
     virtual void SetChatMessage(const char* role, const char* content) override; 
 #endif  
+    virtual void SetStandbyMode(bool enable);  // 切换待机模式
+    virtual void UpdateTimeDisplay();          // 更新时间显示
 
     // Add theme switching function
     virtual void SetTheme(const std::string& theme_name) override;
@@ -61,7 +68,7 @@ public:
                    DisplayFonts fonts);
 };
 
-// // SPI LCD显示器
+// SPI LCD显示器
 class SpiLcdDisplay : public LcdDisplay {
 public:
     SpiLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel,

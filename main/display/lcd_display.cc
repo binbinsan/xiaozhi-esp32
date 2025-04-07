@@ -259,6 +259,37 @@ void LcdDisplay::Unlock() {
 }
 
 #if CONFIG_USE_WECHAT_MESSAGE_STYLE
+/**
+ * 设置待机模式UI界面
+ * 创建时间显示和日期显示标签
+ * 时间使用大字体(large_text_font)，日期使用普通字体(text_font)
+ */
+void LcdDisplay::SetupStandbyUI() {
+    DisplayLockGuard lock(this);  // 获取显示锁，确保线程安全
+    
+    auto screen = lv_screen_active();  // 获取当前活动屏幕
+    standby_screen_ = lv_obj_create(screen);  // 创建待机页面容器
+    lv_obj_set_size(standby_screen_, LV_HOR_RES, LV_VER_RES);  // 设置全屏大小
+    lv_obj_set_style_bg_color(standby_screen_, current_theme.background, 0);  // 设置背景颜色
+    lv_obj_set_style_border_width(standby_screen_, 0, 0);  // 无边框
+    lv_obj_set_style_pad_all(standby_screen_, 0, 0);  // 无内边距
+    
+    // 创建时间显示标签 - 使用text_font
+    time_label_ = lv_label_create(standby_screen_);
+    lv_obj_set_style_text_font(time_label_, fonts_.text_font, 0);  // 设置字体
+    lv_obj_set_style_text_color(time_label_, current_theme.text, 0);  // 设置文本颜色
+    lv_obj_align(time_label_, LV_ALIGN_CENTER, 0, -30);  // 居中显示，向上偏移30像素
+    
+    // 创建日期显示标签 - 使用普通字体
+    date_label_ = lv_label_create(standby_screen_);
+    lv_obj_set_style_text_font(date_label_, fonts_.text_font, 0);  // 设置普通字体
+    lv_obj_set_style_text_color(date_label_, current_theme.text, 0);  // 设置文本颜色
+    lv_obj_align(date_label_, LV_ALIGN_CENTER, 0, 30);  // 居中显示，向下偏移30像素
+    
+    // 初始隐藏待机页面
+    lv_obj_add_flag(standby_screen_, LV_OBJ_FLAG_HIDDEN);
+}
+
 void LcdDisplay::SetupUI() {
     DisplayLockGuard lock(this);
 
@@ -693,6 +724,60 @@ void LcdDisplay::SetIcon(const char* icon) {
     lv_label_set_text(emotion_label_, icon);
 }
 
+void LcdDisplay::SetStandbyMode(bool enable) {
+    DisplayLockGuard lock(this);
+    
+    standby_mode_ = enable;
+    
+    if (standby_screen_ == nullptr) {
+        SetupStandbyUI();
+    }
+    
+    if (enable) {
+        // 隐藏正常UI元素
+        if (status_bar_) lv_obj_add_flag(status_bar_, LV_OBJ_FLAG_HIDDEN);
+        if (content_) lv_obj_add_flag(content_, LV_OBJ_FLAG_HIDDEN);
+        if (container_) lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+        
+        // 显示待机页面
+        lv_obj_clear_flag(standby_screen_, LV_OBJ_FLAG_HIDDEN);
+        UpdateTimeDisplay();
+    } else {
+        // 显示正常UI元素
+        if (status_bar_) lv_obj_clear_flag(status_bar_, LV_OBJ_FLAG_HIDDEN);
+        if (content_) lv_obj_clear_flag(content_, LV_OBJ_FLAG_HIDDEN);
+        if (container_) lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
+        
+        // 隐藏待机页面
+        lv_obj_add_flag(standby_screen_, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+/**
+ * 更新时间显示内容
+ * 获取当前系统时间并格式化显示
+ * 时间格式: HH:MM (24小时制)
+ * 日期格式: YYYY-MM-DD 星期X
+ */
+void LcdDisplay::UpdateTimeDisplay() {
+    if (!standby_mode_ || !time_label_ || !date_label_) {
+        return;  // 非待机模式或标签未初始化则直接返回
+    }
+    
+    time_t now = time(nullptr);  // 获取当前时间戳
+    struct tm* timeinfo = localtime(&now);  // 转换为本地时间结构体
+    
+    // 格式化时间字符串 (HH:MM)
+    char time_str[16];
+    strftime(time_str, sizeof(time_str), "%H:%M", timeinfo);
+    lv_label_set_text(time_label_, time_str);  // 更新时间显示
+    
+    // 格式化日期字符串 (YYYY-MM-DD 星期X)
+    char date_str[32];
+    strftime(date_str, sizeof(date_str), "%Y-%m-%d %A", timeinfo);
+    lv_label_set_text(date_label_, date_str);  // 更新日期显示
+}
+
 void LcdDisplay::SetTheme(const std::string& theme_name) {
     DisplayLockGuard lock(this);
     
@@ -880,6 +965,13 @@ void LcdDisplay::SetTheme(const std::string& theme_name) {
     // Update low battery popup
     if (low_battery_popup_ != nullptr) {
         lv_obj_set_style_bg_color(low_battery_popup_, current_theme.low_battery, 0);
+    }
+    
+    // 更新待机页面样式
+    if (standby_screen_ != nullptr) {
+        lv_obj_set_style_bg_color(standby_screen_, current_theme.background, 0);
+        if (time_label_) lv_obj_set_style_text_color(time_label_, current_theme.text, 0);
+        if (date_label_) lv_obj_set_style_text_color(date_label_, current_theme.text, 0);
     }
 
     // No errors occurred. Save theme to settings
