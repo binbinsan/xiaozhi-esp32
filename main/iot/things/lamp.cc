@@ -55,4 +55,5 @@ public:
 
 } // namespace iot
 
+
 DECLARE_THING(Lamp);
