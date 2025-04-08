@@ -284,4 +284,21 @@
 #define DISPLAY_SPI_MODE 0
 #endif
 
+// 触摸屏I2C配置参数
+// 注意：这些引脚需要根据实际硬件连接修改
+#define TOUCH_I2C_SDA_PIN        GPIO_NUM_21   // I2C SDA引脚，根据实际连接修改
+#define TOUCH_I2C_SCL_PIN        GPIO_NUM_22   // I2C SCL引脚，根据实际连接修改
+#define TOUCH_I2C_FREQ           400000        // I2C频率: 400KHz
+#define TOUCH_I2C_PORT           I2C_NUM_0     // I2C端口号
+
+// FT6236触摸控制器配置
+#define TOUCH_FT6236_I2C_ADDR    0x38          // FT6236默认I2C地址 
+#define TOUCH_FT6236_INT_PIN     GPIO_NUM_NC   // 中断引脚，如果没有则设为GPIO_NUM_NC
+
+// 触摸功能配置
+#define TOUCH_ENABLE_CLICK       1             // 启用点击功能
+#define TOUCH_ENABLE_SLIDE       1             // 启用滑动功能
+#define TOUCH_SLIDE_THRESHOLD    30            // 滑动识别阈值(像素)
+#define TOUCH_UPDATE_INTERVAL    50            // 触摸状态更新间隔(毫秒)
+
 #endif // _BOARD_CONFIG_H_

@@ -613,10 +613,14 @@ void Application::ShowClock() {
     // 在聊天消息区域显示大字体时间，使用不同的显示风格
     char time_str[128];
     
-    // 根据秒数循环显示不同的时钟样式
-    int style = (second / 20) % 3;  // 每20秒切换一次样式，共3种样式
+    // 用静态变量保存当前时钟样式，支持通过触摸屏切换
+    static int clock_style = 0;  // 默认样式
     
-    switch (style) {
+    // 每分钟切换一次样式，或者可以通过触摸屏操作来手动切换
+    // 样式值在0-2之间循环
+    clock_style = (clock_style) % 3;
+    
+    switch (clock_style) {
         case 0:
             // 样式1: 简单框架
             snprintf(time_str, sizeof(time_str), 
@@ -655,6 +659,22 @@ void Application::ShowClock() {
     } else {
         // 晚上
         display->SetEmotion("sleepy");
+    }
+}
+
+// 提供切换时钟样式的公共方法，可被触摸事件调用
+void Application::CycleClockStyle() {
+    // 添加静态变量来跟踪当前时钟样式
+    static int current_style = 0;
+    
+    // 切换到下一个样式
+    current_style = (current_style + 1) % 3;
+    
+    // 立即刷新时钟显示
+    if (device_state_ == kDeviceStateIdle && ota_.HasServerTime()) {
+        Schedule([this]() {
+            ShowClock();
+        });
     }
 }
 

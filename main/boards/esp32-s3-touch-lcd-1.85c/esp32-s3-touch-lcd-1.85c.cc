@@ -6,6 +6,7 @@
 #include "button.h"
 #include "config.h"
 #include "iot/thing_manager.h"
+#include "ft6236.h"
 
 #include <esp_log.h>
 #include "i2c_device.h"
@@ -221,6 +222,7 @@ private:
     i2c_master_bus_handle_t i2c_bus_;
     esp_io_expander_handle_t io_expander = NULL;
     LcdDisplay* display_;
+    Ft6236* touch_pad_ = nullptr;
 
     void InitializeI2c() {
         // Initialize I2C peripheral
@@ -364,6 +366,111 @@ private:
                                     });
     }
 
+    void InitializeTouchPad() {
+        ESP_LOGI(TAG, "Initializing FT6236 touch controller");
+        
+        // 假设FT6236使用默认地址0x38，如果不是，请修改
+        touch_pad_ = new Ft6236(i2c_bus_, 0x38);
+        
+        // 创建触摸任务
+        xTaskCreate(TouchpadDaemon, "touch_task", 4096, this, 5, nullptr);
+    }
+    
+    static void TouchpadDaemon(void* param) {
+        auto board = static_cast<CustomBoard*>(param);
+        auto touch_pad = board->GetTouchPad();
+        bool was_touched = false;
+        
+        // 上一次触摸点坐标
+        int last_x = -1, last_y = -1;
+        // 触摸开始时间
+        uint32_t touch_start_time = 0;
+        // 是否执行了手势操作
+        bool gesture_executed = false;
+        
+        // 等待2秒让系统稳定
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        
+        while (true) {
+            touch_pad->UpdateTouchPoint();
+            auto tp = touch_pad->GetTouchPoint();
+            auto& app = Application::GetInstance();
+            
+            if (tp.num > 0) {
+                // 触摸按下或移动
+                if (!was_touched) {
+                    // 触摸开始
+                    was_touched = true;
+                    touch_start_time = esp_timer_get_time() / 1000; // 毫秒
+                    last_x = tp.x;
+                    last_y = tp.y;
+                    gesture_executed = false;
+                } else {
+                    // 触摸移动中，检测手势
+                    uint32_t touch_duration = esp_timer_get_time() / 1000 - touch_start_time;
+                    
+                    // 计算移动距离
+                    int dx = tp.x - last_x;
+                    int dy = tp.y - last_y;
+                    
+                    // 手势识别 - 只在已移动足够距离且未执行过手势时执行
+                    if (!gesture_executed && (abs(dx) > 50 || abs(dy) > 50)) {
+                        gesture_executed = true;
+                        
+                        // 判断主要方向
+                        if (abs(dx) > abs(dy)) {
+                            // 水平方向
+                            if (dx > 0) {
+                                // 右滑 - 空闲状态下切换时钟样式
+                                if (app.GetDeviceState() == kDeviceStateIdle) {
+                                    app.CycleClockStyle();
+                                }
+                            } else {
+                                // 左滑
+                                // 可以添加其他操作...
+                            }
+                        } else {
+                            // 垂直方向
+                            if (dy > 0) {
+                                // 下滑 - 降低音量
+                                board->GetAudioCodec()->DecreaseVolume();
+                            } else {
+                                // 上滑 - 提高音量
+                                board->GetAudioCodec()->IncreaseVolume();
+                            }
+                        }
+                    }
+                }
+            } else if (was_touched) {
+                // 触摸释放
+                was_touched = false;
+                
+                // 计算触摸持续时间
+                uint32_t touch_duration = esp_timer_get_time() / 1000 - touch_start_time;
+                
+                // 如果没有执行过手势且触摸时间较短，当作点击处理
+                if (!gesture_executed && touch_duration < 300) {
+                    // 点击操作 - 切换聊天状态
+                    app.ToggleChatState();
+                } 
+                // 如果触摸时间较长，当作长按处理
+                else if (!gesture_executed && touch_duration >= 1000) {
+                    // 长按操作 - 可以实现其他功能
+                    if (app.GetDeviceState() == kDeviceStateIdle) {
+                        // 进入/退出省电模式
+                        bool is_power_save = board->IsPowerSaveMode();
+                        board->SetPowerSaveMode(!is_power_save);
+                    }
+                }
+            }
+            
+            // 每30ms检查一次触摸状态
+            vTaskDelay(pdMS_TO_TICKS(30));
+        }
+        
+        vTaskDelete(nullptr);
+    }
+
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
@@ -388,6 +495,7 @@ public:
         InitializeTca9554();
         InitializeSpi();
         Initializest77916Display();
+        InitializeTouchPad();  // 添加触摸初始化
         InitializeButtons();
         InitializeIot();
         GetBacklight()->RestoreBrightness();
@@ -407,6 +515,10 @@ public:
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;
+    }
+
+    Ft6236* GetTouchPad() {
+        return touch_pad_;
     }
 };
 
