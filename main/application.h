@@ -97,6 +97,7 @@ private:
     bool aborted_ = false;
     bool voice_detected_ = false;
     int clock_ticks_ = 0;
+    DeviceState last_device_state_ = kDeviceStateUnknown;
     TaskHandle_t main_loop_task_handle_ = nullptr;
     TaskHandle_t check_new_version_task_handle_ = nullptr;
 
@@ -122,6 +123,7 @@ private:
     void CheckNewVersion();
     void ShowActivationCode();
     void OnClockTimer();
+    void ShowClock();
     void SetListeningMode(ListeningMode mode);
     void AudioLoop();
 };
