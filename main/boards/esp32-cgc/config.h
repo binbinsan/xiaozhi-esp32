@@ -286,9 +286,9 @@
 
 // 触摸屏I2C配置参数
 // 注意：这些引脚需要根据实际硬件连接修改
-#define TOUCH_I2C_SDA_PIN        GPIO_NUM_21   // I2C SDA引脚，根据实际连接修改
-#define TOUCH_I2C_SCL_PIN        GPIO_NUM_22   // I2C SCL引脚，根据实际连接修改
-#define TOUCH_I2C_FREQ           400000        // I2C频率: 400KHz
+#define TOUCH_I2C_SDA_PIN        GPIO_NUM_12   // I2C SDA引脚，根据实际连接修改
+#define TOUCH_I2C_SCL_PIN        GPIO_NUM_13   // I2C SCL引脚，根据实际连接修改
+#define TOUCH_I2C_FREQ           100000        // I2C频率: 100KHz
 #define TOUCH_I2C_PORT           I2C_NUM_0     // I2C端口号
 
 // FT6236触摸控制器配置
